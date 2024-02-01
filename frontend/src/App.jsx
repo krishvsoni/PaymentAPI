@@ -1,9 +1,8 @@
-
 function App() {
 
   return (
     <div>
-        Hello world
+      PayMent Wallet
     </div>
   )
 }
