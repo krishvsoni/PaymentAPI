@@ -5,7 +5,7 @@ FROM mongo:4.4.7 AS build
 RUN echo "rs.initiate();" > /docker-entrypoint-initdb.d/replica-init.js
 
 # Stage 2: Final Stage
-FROM mongo:4.4.7
+FROM mongo:4.4.7 
 
 # Copy the replica set initialization file from the build stage
 COPY --from=build /docker-entrypoint-initdb.d/replica-init.js /docker-entrypoint-initdb.d/replica-init.js
