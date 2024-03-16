@@ -2,7 +2,8 @@ function App() {
 
   return (
     <div>
-      PayMent Wallet
+
+      Payment API
     </div>
   )
 }
