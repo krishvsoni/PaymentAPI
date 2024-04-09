@@ -5,24 +5,25 @@ const { z } = require('zod');
 const router = express.Router();
 const { User, Account } = require('../db.js');
 const { authMiddleware } = require('../middleware.js');
+const bcrypt = require('bcrypt');
 
 const signupSchema = z.object({
     username: z.string().email(),
     firstName: z.string(),
     lastName: z.string(),
     password: z.string()
-})
+});
 
 const signinSchema = z.object({
     username: z.string().email(),
     password: z.string()
-})
+});
 
 const updateSchema = z.object({
     firstName: z.string().optional(),
     lastName: z.string().optional(),
     password: z.string().optional(),
-})
+});
 
 router.post('/signup', async (req, res) => {
     const payload = req.body;
@@ -30,36 +31,44 @@ router.post('/signup', async (req, res) => {
     if (!validateFields.success) {
         return res.status(401).json({
             message: "Incorrect inputs"
-        })
+        });
     }
 
-    const userExist = await User.findOne({ username: payload.username })
+    const userExist = await User.findOne({ username: payload.username });
     if (userExist) {
         return res.status(401).json({
             message: "Email already taken"
-        })
+        });
     }
 
-    const user = await User.create({
-        username: payload.username,
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        password: payload.password
-    });
+    try {
+        const hashedPassword = await bcrypt.hash(payload.password, 10);
 
-    const userId = user._id;
+        const user = await User.create({
+            username: payload.username,
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            password: hashedPassword
+        });
 
-    await Account.create({
-        userId: userId,
-        balance: Math.floor(Math.random() * 10000) + 1
-    })
+        const userId = user._id;
 
-    const token = jwt.sign({ userId }, JWT_SECRET);
+        await Account.create({
+            userId: userId,
+            balance: Math.floor(Math.random() * 10000) + 1
+        });
 
-    return res.status(200).json({
-        message: "User created successfully",
-        token
-    })
+        const token = jwt.sign({ userId }, JWT_SECRET);
+
+        return res.status(200).json({
+            message: "User created successfully",
+            token
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Error creating user"
+        });
+    }
 });
 
 router.post('/signin', async (req, res) => {
@@ -68,11 +77,18 @@ router.post('/signin', async (req, res) => {
     if (!validate.success) {
         return res.status(401).json({
             message: "Incorrect details"
-        })
+        });
     }
 
-    const user = await User.findOne({ username: payload.username, password: payload.password });
+    const user = await User.findOne({ username: payload.username });
     if (!user) {
+        return res.status(401).json({
+            message: "Incorrect credentials"
+        });
+    }
+
+    const passwordMatch = await bcrypt.compare(payload.password, user.password);
+    if (!passwordMatch) {
         return res.status(401).json({
             message: "Incorrect credentials"
         });
@@ -83,8 +99,8 @@ router.post('/signin', async (req, res) => {
     return res.status(200).json({
         message: "logged in successfully",
         token
-    })
-})
+    });
+});
 
 router.put('/', authMiddleware, async (req, res) => {
     const validateFields = updateSchema.safeParse(req.body);
@@ -138,4 +154,3 @@ router.get('/bulk', async (req, res) => {
 });
 
 module.exports = router;
-
